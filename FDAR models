@@ -1,0 +1,82 @@
+#clean working space
+rm(list=ls())
+
+#load packages
+require(dplyr)
+require(bbmle)
+
+####Load the list of results form null models
+#Example with grass_SES_RESULTS
+grass_SES_RESULTS
+
+####Create a data frame with Functional richness results
+df=as.data.frame(grass_SES_RESULTS$ses_res_rich)
+names(df)
+
+####Change the name of colum ses_p-value to pvalues
+colnames(df)[colnames(df) == "ses_p-value"] <- "pvalues"
+
+
+####Create a new column describing the functional pattern  ( i.e., clustered, overdispersion, ranodm), base don the values of SESs and p-values
+df <- df %>%
+  mutate(pattern = case_when(
+    ses > 0 & pvalues > 0.95 ~ "overdispersion",
+    ses < 0 & pvalues< 0.05 ~ "clustering",
+    TRUE ~ "random"
+  ))
+
+####check data frame
+df
+
+####Check what is the overall patterns
+table(df$pattern)
+
+####Load data  on patch area
+x=read.table(pipe("pbpaste"), sep="\t", header=T);x
+area=x$Area
+
+####Insert a new column with area  values in the data frame
+df=  cbind(df, area)
+names(df)
+
+
+#### Define the list of candidate models
+null <- lm(ses ~ 1, data=df)
+linear <- lm(ses ~ area, , data=df)
+exponential <- nls(ses ~ a * exp(b * area), start = list(a = coefficients(linear)[1], b = coefficients(linear)[2]),data=df)
+#logarithmic <- nls(ses ~ a + b * log(area), start = list(a = coefficients(linear)[1], b = coefficients(linear)[2]),data=df)
+asymptotic <- nls(ses ~ a + b / (area), start = list(a = coefficients(linear)[1], b = coefficients(linear)[2]),data=df)
+
+
+####model selection base don Bayesian Information Criterion
+model_sel=BICtab(null,
+                 linear,
+                 exponential,
+                 #logarithmic,
+                 asymptotic,
+       nobs=length(x),weights = TRUE, delta = TRUE, base = TRUE);model_sel
+
+
+#####Plot data and fitted models
+#par(mfrow = c(1, 3))
+
+#Define a factor base don the functional pattern
+pattern1=as.factor(df$pattern)
+
+#Plot data 
+plot(ses~area,xlab="Area", ylab="SES.Rich", col=pattern1,pch=19,data=df)
+#plot fitted models
+abline(null,col="green")
+abline(linear,col="red")
+#lines(coefficients(logarithmic)[1]+(coefficients(logarithmic)[2])*log(1:max(x)))
+lines(coefficients(asymptotic)[1]+(coefficients(asymptotic)[2])/(1:max(x)), col="blue")
+lines(1:max(x), coefficients(exponential)[1] * exp(coefficients(exponential)[2] * 1:max(x)), col = "purple")
+
+#Add legend for fitted models
+legend("topright", legend=c("Null", "Linear", "Exponential","Asymptotic"), col=c("green","red", "blue", "purple"),lty=1,
+       box.lty=0,cex=0.8, title = "Models")
+
+# Add legend for functional patternspatterns
+#change the value sof inset to move the legend horizontaly or vertically
+legend("topright", legend = levels(pattern1), fill = unique(pattern1), pch = 19,
+       title = "Functional Pattern", cex = 0.8, bty = "n", inset = c(0.25, 0))
