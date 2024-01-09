@@ -1,0 +1,88 @@
+#clean working space
+rm(list=ls())
+
+# Load required libraries
+library(dplyr)
+library(bbmle)
+
+#Load data
+load(wash_SES_RESULTS)
+
+### Include patch area in each dataset in the list as a new colum
+# Read patch area data from pasteboard (mac style)
+x <- read.table(pipe("pbpaste"), sep="\t", header=T)
+area <- x$Area
+
+# Function to bind area to each matrix
+bind_area <- function(matrix_obj, area_vector) {
+  cbind(matrix_obj, area = area_vector)
+}
+# Apply the function to each matrix in the list
+wash_SES_RESULTS <- lapply(wash_SES_RESULTS, bind_area, area = area)
+
+
+grass_SES_RESULTS
+# Define function to run analysis
+run_model_selection <- function(dataset) {
+  
+  # Create data frame with dataset results
+  df <- as.data.frame(dataset)
+  
+  # Change SES p-value column name
+  colnames(df)[colnames(df) == "ses_p-value"] <- "pvalues"
+  
+  # Create functional pattern column
+  df <- df %>%
+    mutate(pattern = case_when(
+      ses > 0 & pvalues > 0.95 ~ "overdispersion",
+      ses < 0 & pvalues < 0.05 ~ "clustering",
+      TRUE ~ "random"
+    ))
+  
+  # Combine data frame with area data
+ # if (!missing(area)) {
+  #  df <- cbind(df, area)
+  #}
+  
+  #### Define the list of candidate models
+  null <- lm(ses ~ 1, data=df)
+  linear <- lm(ses ~ area, data=df)
+  exponential <- nls(ses ~ a * exp(b * area), start = list(a = coefficients(linear)[1], b = coefficients(linear)[2]),data=df)
+ asymptotic <- nls(ses ~ a + b / (area), start = list(a = coefficients(linear)[1], b = coefficients(linear)[2]),data=df)
+  
+  # Run model selection based on BIC
+  model_sel <- BICtab(null,
+                      linear,
+                      exponential,
+                      asymptotic,
+                      nobs=length(area),weights = TRUE, delta = TRUE, base = TRUE);
+  
+  # Print model selection results
+  print(model_sel)
+  
+  
+  # Define the pattern1 variable based on df$pattern
+  pattern1 <- as.factor(df$pattern)
+  
+  # Plot data and fitted models
+  plot(ses ~ area, xlab = "Area", ylab = "SES", col = pattern1, pch = 19, data = df)
+  
+  # Plot fitted lines
+  abline(null, col = "green")
+  abline(linear, col = "red")
+  lines(coefficients(asymptotic)[1] + (coefficients(asymptotic)[2]) / (1:max(x)), col = "blue")
+  lines(1:max(x), coefficients(exponential)[1] * exp(coefficients(exponential)[2] * 1:max(x)), col = "purple")
+  
+  # Add legend for fitted models
+  legend("topright", legend = c("Null", "Exponential", "Asymptotic"), col = c("green", "purple", "blue"), lty = 1,
+         box.lty = 0, cex = 0.8, title = "Models")
+  
+  # Add legend for functional patterns
+  legend("topright", legend = levels(pattern1), fill = unique(pattern1), pch = 19,
+         title = "Functional Pattern", cex = 0.8, bty = "n", inset = c(0.25, 0))
+}
+
+
+
+# Run analysis for each dataset in the list
+lapply(wash_SES_RESULTS,run_model_selection)
