@@ -21,7 +21,7 @@ bind_area <- function(matrix_obj, area_vector) {
 wash_SES_RESULTS <- lapply(wash_SES_RESULTS, bind_area, area = area)
 
 
-grass_SES_RESULTS
+wash_SES_RESULTS
 # Define function to run analysis
 run_model_selection <- function(dataset) {
   
