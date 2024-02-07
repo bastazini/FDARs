@@ -34,8 +34,8 @@ run_model_selection <- function(dataset) {
   # Create functional pattern column
   df <- df %>%
     mutate(pattern = case_when(
-      ses > 0 & pvalues > 0.95 ~ "overdispersion",
-      ses < 0 & pvalues < 0.05 ~ "clustering",
+      ses > 0 & pvalues > 0.975 ~ "overdispersion",
+      ses < 0 & pvalues < 0.025 ~ "clustering",
       TRUE ~ "random"
     ))
   
