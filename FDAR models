@@ -20,8 +20,8 @@ colnames(df)[colnames(df) == "ses_p-value"] <- "pvalues"
 ####Create a new column describing the functional pattern  ( i.e., clustered, overdispersion, ranodm), base don the values of SESs and p-values
 df <- df %>%
   mutate(pattern = case_when(
-    ses > 0 & pvalues > 0.95 ~ "overdispersion",
-    ses < 0 & pvalues< 0.05 ~ "clustering",
+    ses > 0 & pvalues > 0.975 ~ "overdispersion",
+      ses < 0 & pvalues < 0.025 ~ "clustering",
     TRUE ~ "random"
   ))
 
@@ -48,7 +48,7 @@ exponential <- nls(ses ~ a * exp(b * area), start = list(a = coefficients(linear
 asymptotic <- nls(ses ~ a + b / (area), start = list(a = coefficients(linear)[1], b = coefficients(linear)[2]),data=df)
 
 
-####model selection base don Bayesian Information Criterion
+####model selection based on Bayesian Information Criterion
 model_sel=BICtab(null,
                  linear,
                  exponential,
@@ -60,7 +60,7 @@ model_sel=BICtab(null,
 #####Plot data and fitted models
 #par(mfrow = c(1, 3))
 
-#Define a factor base don the functional pattern
+#Define a factor based on the functional pattern
 pattern1=as.factor(df$pattern)
 
 #Plot data 
