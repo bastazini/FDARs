@@ -1,0 +1,131 @@
+## Piecewise Models for SES ##
+
+library(sars)
+library(dplyr)
+
+intz_set = 0.001
+Ncore <- 4
+
+
+fit_thr_int2 <- function(datz, logAxesz = "none",
+                         logBase = log10,
+                         conz = 0.1,  nizl = NULL,
+                         parallelz = FALSE,
+                         coresz = NULL,
+                         intz = NULL){
+  
+  if (ncol(datz) != 2) stop("incorrect col N")
+  
+  modz <- c("ContOne", "ZslopeOne")
+  
+  s <- sar_threshold(data = datz,
+                     mod = modz,
+                     interval = intz,
+                     logAxes = logAxesz,
+                     con = conz,
+                     nisl = nizl,
+                     logT = logBase,
+                     parallel = parallelz,
+                     cores = coresz)
+  return(s)
+}
+
+
+fit_thr2 <- function(datz,
+                     logBase = log10,
+                     conz = 0.1,
+                     nizl = NULL,
+                     parallelz = FALSE,
+                     coresz = NULL,
+                     intz = NULL){
+  #type = "area" or "both"; if former it just does
+  #the semi-log
+  m1 <- fit_thr_int2(datz, logAxesz = "area",
+                     logBase = logBase,
+                     conz = conz,
+                     nizl = nizl,
+                     parallelz = parallelz,
+                     coresz = coresz,
+                     intz = intz)
+  
+  sm1 <- summary(m1)
+  
+  rsm1 <- sm1[[2]] %>%
+    select(AICc, R2, Th1, Th2, seg1, seg2, seg3)
+  
+  rsm1 <- rsm1[order(rsm1$AICc),]
+  
+  snow <- list(list(rsm1), m1)
+  return(snow)
+  
+}
+
+
+g <- getwd()
+setwd("C:\\Users\\Rafael\\Documents\\fdars_2024\\fdars_24")
+lf <- c("bulrush_MainTable.csv", "grass_MainTable.csv",
+        "wash_MainTable.csv")
+ldf <- lapply(lf, read.csv)
+setwd(g)
+
+metr <- c("Fric_SES",
+          "Disp_SES",
+          "Eve_SES")
+
+th_res_all <- lapply(ldf, function(y){
+  
+  da <- y
+  
+  th_res_int <- lapply(metr, function(x){
+    
+    datAll <- select(da, area, 
+                     "native_count" = all_of(x))
+    
+    ResAll <- fit_thr2(datz = datAll,
+                       logBase = log10,
+                       parallelz = TRUE,
+                       coresz = Ncore,
+                       nizl = 5,
+                       intz = intz_set)
+    
+    ResAll
+    
+  })#eo lapply int
+  
+  names(th_res_int) <- metr
+  th_res_int
+  
+})#eo main lapply
+
+
+names(th_res_all) <- sub("\\_.*", "", lf)
+
+
+All_res <- lapply(th_res_all, 
+                  function(x) lapply(x,function(y) y[[1]][[1]]))
+
+All_res
+
+saveRDS(All_res, file = "SES_area_res.RDS")
+
+plot(th_res_all$grass$Disp_SES[[2]])
+plot(th_res_all$grass$Eve_SES[[2]])
+
+plot(th_res_all$wash$Fric_SES[[2]])
+plot(th_res_all$wash$Disp_SES[[2]])
+plot(th_res_all$wash$Eve_SES[[2]])
+
+# Extract fitted values for plotting
+# Wash_Disp_Linear
+m1a <- th_res_all$wash$Disp_SES[[2]][[1]][[3]]
+x1a <- th_res_all$wash$Disp_SES[[2]][[4]]$A
+r1a <- data.frame("A" = x1a, "S" = fitted(m1a))
+plot(th_res_all$wash$Disp_SES[[2]][[4]])
+lines(r1a)
+
+# Wash_Eve_ContOne
+m1b <- th_res_all$wash$Eve_SES[[2]][[1]][[1]]
+x1b <- th_res_all$wash$Eve_SES[[2]][[4]]$A
+r1b <- data.frame("A" = x1b, "S" = fitted(m1b))
+plot(th_res_all$wash$Eve_SES[[2]][[4]])
+lines(r1b)
