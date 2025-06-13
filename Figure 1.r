@@ -1,4 +1,9 @@
 
+
+##Note: grid_start argument in sar_average is set to "none" for speed. To replicate 
+#the main analyses, this would need to be updated to match the arguments used in 
+#sar_average for the main model comparison
+
 library(sars)
 
 dat1 <- read.csv("grass_MainTable.csv")
