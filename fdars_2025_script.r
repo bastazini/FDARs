@@ -16,7 +16,7 @@ library("corrplot")
 # Initial procedures
 
 ## Directory.
-setwd("C:\\Users\\Rafael\\Desktop\\fdars_2025\\fdars_2025")
+#setwd()
 
 set.seed(999)
 
